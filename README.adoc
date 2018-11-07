@@ -20,9 +20,8 @@ https://start.spring.io and, in particular, the
 {service}/blob/master/src/main/resources/application.yml[configuration of our instance]
 for an example. Such configuration is also described in details in the documentation.
 
-NOTE: We use the continuous deployment technique to manage our instance; check the
-https://github.com/spring-io/initializr/milestones[milestones page] for an overview
-of changes
+NOTE: Check the https://github.com/spring-io/initializr/milestones[milestones page] for an
+overview of the changes.
 
 == Installation and Getting Started
 The {docs}/htmlsingle/[reference documentation] is published in
