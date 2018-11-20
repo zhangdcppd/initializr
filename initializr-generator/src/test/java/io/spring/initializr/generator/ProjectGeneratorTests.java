@@ -709,10 +709,8 @@ class ProjectGeneratorTests extends AbstractProjectGeneratorTests {
 		request.getBuildProperties().getVersions()
 				.put(VersionProperty.of("internal.version"), () -> "4.5.6");
 		request.getBuildProperties().getMaven().put("ignore.property", () -> "yes");
-
-		generateGradleBuild(request).contains("name = 'test'")
-				.hasProperties("foo.version", "1.2.3", "internalVersion", "4.5.6")
-				.doesNotContain("ignore.property");
+		generateGradleBuild(request).hasProperties("name", "test", "foo.version", "1.2.3",
+				"internalVersion", "4.5.6").doesNotContain("ignore.property");
 	}
 
 	@Test

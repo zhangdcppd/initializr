@@ -17,6 +17,9 @@
 package io.spring.initializr.test.generator;
 
 import io.spring.initializr.generator.ProjectRequest;
+import io.spring.initializr.generator.version.Version;
+import io.spring.initializr.generator.version.VersionParser;
+import io.spring.initializr.generator.version.VersionRange;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,6 +31,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class GradleBuildAssert {
 
 	private final String content;
+
+	private static final VersionRange GRADLE_3_BOOT_VERSION_RANGE = VersionParser.DEFAULT
+			.parseRange("[1.5.0.M1,2.0.0.M1)");
 
 	public GradleBuildAssert(String content) {
 		this.content = content;
@@ -48,7 +54,12 @@ public class GradleBuildAssert {
 	}
 
 	public GradleBuildAssert hasBootVersion(String bootVersion) {
-		return contains("springBootVersion = '" + bootVersion + "'");
+		Version version = Version.parse(bootVersion);
+		if (GRADLE_3_BOOT_VERSION_RANGE.match(version)) {
+			return contains(
+					"org.springframework.boot:spring-boot-gradle-plugin:" + bootVersion);
+		}
+		return contains("id 'org.springframework.boot' version '" + bootVersion + "'");
 	}
 
 	public GradleBuildAssert hasJavaVersion(String javaVersion) {

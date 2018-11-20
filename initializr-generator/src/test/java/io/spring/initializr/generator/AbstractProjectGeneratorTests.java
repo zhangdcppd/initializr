@@ -17,13 +17,18 @@
 package io.spring.initializr.generator;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+import io.spring.initializr.generator.io.IndentingWriterFactory;
+import io.spring.initializr.generator.io.SimpleIndentStrategy;
+import io.spring.initializr.generator.project.ProjectDirectoryFactory;
+import io.spring.initializr.generator.spike.ProjectGeneratorInvoker;
 import io.spring.initializr.metadata.Dependency;
 import io.spring.initializr.metadata.InitializrMetadata;
-import io.spring.initializr.metadata.SimpleInitializrMetadataProvider;
+import io.spring.initializr.metadata.InitializrMetadataProvider;
 import io.spring.initializr.test.generator.GradleBuildAssert;
 import io.spring.initializr.test.generator.PomAssert;
 import io.spring.initializr.test.generator.ProjectAssert;
@@ -34,6 +39,7 @@ import org.junitpioneer.jupiter.TempDirectory;
 import org.mockito.ArgumentMatcher;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.support.StaticApplicationContext;
 
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -45,6 +51,8 @@ import static org.mockito.Mockito.verify;
  */
 @ExtendWith(TempDirectory.class)
 public abstract class AbstractProjectGeneratorTests {
+
+	private final SwappableInitializrMetadataProvider initializrMetadataProvider = new SwappableInitializrMetadataProvider();
 
 	protected final ProjectGenerator projectGenerator;
 
@@ -71,7 +79,22 @@ public abstract class AbstractProjectGeneratorTests {
 		this.projectGenerator.setEventPublisher(this.eventPublisher);
 		this.projectGenerator
 				.setRequestResolver(new ProjectRequestResolver(new ArrayList<>()));
-		this.projectGenerator.setTmpdir(folder.toString());
+		File tempDir = folder.toFile();
+		this.projectGenerator.setTmpdir(tempDir.getAbsolutePath());
+		this.projectGenerator.setMetadataProvider(this.initializrMetadataProvider);
+		StaticApplicationContext context = new StaticApplicationContext();
+		context.registerBean("metadataProvider", InitializrMetadataProvider.class,
+				() -> this.initializrMetadataProvider);
+		context.refresh();
+		this.projectGenerator.setProjectGeneratorInvoker(
+				new ProjectGeneratorInvoker(context, (projectGenerationContext) -> {
+					projectGenerationContext.registerBean(IndentingWriterFactory.class,
+							() -> IndentingWriterFactory
+									.create(new SimpleIndentStrategy("\t")));
+					projectGenerationContext.registerBean(ProjectDirectoryFactory.class,
+							() -> (description) -> Files
+									.createTempDirectory(tempDir.toPath(), "project-"));
+				}));
 	}
 
 	protected InitializrMetadataTestBuilder initializeTestMetadataBuilder() {
@@ -103,8 +126,7 @@ public abstract class AbstractProjectGeneratorTests {
 	}
 
 	protected void applyMetadata(InitializrMetadata metadata) {
-		this.projectGenerator
-				.setMetadataProvider(new SimpleInitializrMetadataProvider(metadata));
+		this.initializrMetadataProvider.metadata = metadata;
 	}
 
 	protected void verifyProjectSuccessfulEventFor(ProjectRequest request) {
@@ -149,6 +171,18 @@ public abstract class AbstractProjectGeneratorTests {
 		public boolean matches(ProjectFailedEvent event) {
 			return this.request.equals(event.getProjectRequest())
 					&& this.cause.equals(event.getCause());
+		}
+
+	}
+
+	private static class SwappableInitializrMetadataProvider
+			implements InitializrMetadataProvider {
+
+		private InitializrMetadata metadata;
+
+		@Override
+		public InitializrMetadata get() {
+			return this.metadata;
 		}
 
 	}
