@@ -30,7 +30,6 @@ import javax.servlet.http.HttpServletRequest;
 import com.samskivert.mustache.Mustache;
 import io.spring.initializr.generator.BasicProjectRequest;
 import io.spring.initializr.generator.CommandLineHelpGenerator;
-import io.spring.initializr.generator.ProjectGenerator;
 import io.spring.initializr.generator.ProjectRequest;
 import io.spring.initializr.metadata.DependencyMetadata;
 import io.spring.initializr.metadata.DependencyMetadataProvider;
@@ -87,20 +86,20 @@ public class MainController extends AbstractInitializrController {
 	public static final MediaType HAL_JSON_CONTENT_TYPE = MediaType
 			.parseMediaType("application/hal+json");
 
-	private final ProjectGenerator projectGenerator;
-
 	private final DependencyMetadataProvider dependencyMetadataProvider;
 
 	private final CommandLineHelpGenerator commandLineHelpGenerator;
 
+	private final ProjectGenerationInvoker projectGenerationInvoker;
+
 	public MainController(InitializrMetadataProvider metadataProvider,
 			TemplateRenderer templateRenderer, ResourceUrlProvider resourceUrlProvider,
-			ProjectGenerator projectGenerator,
-			DependencyMetadataProvider dependencyMetadataProvider) {
+			DependencyMetadataProvider dependencyMetadataProvider,
+			ProjectGenerationInvoker projectGenerationInvoker) {
 		super(metadataProvider, resourceUrlProvider);
-		this.projectGenerator = projectGenerator;
 		this.dependencyMetadataProvider = dependencyMetadataProvider;
 		this.commandLineHelpGenerator = new CommandLineHelpGenerator(templateRenderer);
+		this.projectGenerationInvoker = projectGenerationInvoker;
 	}
 
 	@ModelAttribute
@@ -248,8 +247,8 @@ public class MainController extends AbstractInitializrController {
 	@ResponseBody
 	public ResponseEntity<byte[]> pom(BasicProjectRequest request) {
 		request.setType("maven-build");
-		byte[] mavenPom = this.projectGenerator
-				.generateMavenPom((ProjectRequest) request);
+		byte[] mavenPom = this.projectGenerationInvoker
+				.invokeBuildGeneration((ProjectRequest) request);
 		return createResponseEntity(mavenPom, "application/octet-stream", "pom.xml");
 	}
 
@@ -257,8 +256,8 @@ public class MainController extends AbstractInitializrController {
 	@ResponseBody
 	public ResponseEntity<byte[]> gradle(BasicProjectRequest request) {
 		request.setType("gradle-build");
-		byte[] gradleBuild = this.projectGenerator
-				.generateGradleBuild((ProjectRequest) request);
+		byte[] gradleBuild = this.projectGenerationInvoker
+				.invokeBuildGeneration((ProjectRequest) request);
 		return createResponseEntity(gradleBuild, "application/octet-stream",
 				"build.gradle");
 	}
@@ -268,10 +267,9 @@ public class MainController extends AbstractInitializrController {
 	public ResponseEntity<byte[]> springZip(BasicProjectRequest basicRequest)
 			throws IOException {
 		ProjectRequest request = (ProjectRequest) basicRequest;
-		File dir = this.projectGenerator.generateProjectStructure(request);
-
-		File download = this.projectGenerator.createDistributionFile(dir, ".zip");
-
+		File dir = this.projectGenerationInvoker
+				.invokeProjectStructureGeneration(request);
+		File download = this.projectGenerationInvoker.createDistributionFile(dir, ".zip");
 		String wrapperScript = getWrapperScript(request);
 		new File(dir, wrapperScript).setExecutable(true);
 		Zip zip = new Zip();
@@ -299,10 +297,10 @@ public class MainController extends AbstractInitializrController {
 	public ResponseEntity<byte[]> springTgz(BasicProjectRequest basicRequest)
 			throws IOException {
 		ProjectRequest request = (ProjectRequest) basicRequest;
-		File dir = this.projectGenerator.generateProjectStructure(request);
-
-		File download = this.projectGenerator.createDistributionFile(dir, ".tar.gz");
-
+		File dir = this.projectGenerationInvoker
+				.invokeProjectStructureGeneration(request);
+		File download = this.projectGenerationInvoker.createDistributionFile(dir,
+				".tar.gz");
 		String wrapperScript = getWrapperScript(request);
 		new File(dir, wrapperScript).setExecutable(true);
 		Tar zip = new Tar();
@@ -349,7 +347,7 @@ public class MainController extends AbstractInitializrController {
 		log.info("Uploading: {} ({} bytes)", download, bytes.length);
 		ResponseEntity<byte[]> result = createResponseEntity(bytes, contentType,
 				fileName);
-		this.projectGenerator.cleanTempFiles(dir);
+		this.projectGenerationInvoker.cleanTempFiles(dir);
 		return result;
 	}
 
