@@ -18,6 +18,10 @@ package io.spring.initializr.generator;
 
 import java.util.stream.Stream;
 
+import io.spring.initializr.generator.language.Language;
+import io.spring.initializr.generator.packaging.Packaging;
+import io.spring.initializr.generator.spike.ConceptTranslator;
+import io.spring.initializr.generator.version.Version;
 import io.spring.initializr.test.generator.ProjectAssert;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -30,7 +34,7 @@ import org.springframework.core.io.ClassPathResource;
  *
  * @author Stephane Nicoll
  */
-class ProjectGeneratorLanguageTests extends AbstractProjectGeneratorTests {
+class ProjectGeneratorLanguageTests extends AbstractProjectGenerationTests {
 
 	public static Stream<Arguments> parameters() {
 		return Stream.of(Arguments.arguments("java", "java"),
@@ -41,29 +45,32 @@ class ProjectGeneratorLanguageTests extends AbstractProjectGeneratorTests {
 	@ParameterizedTest
 	@MethodSource("parameters")
 	public void currentGenerationJar(String language, String extension) {
-		ProjectRequest request = createProjectRequest();
-		request.setLanguage(language);
-		generateProject(request).isGenericProject(ProjectAssert.DEFAULT_PACKAGE_NAME,
+		ProjectAssert project = generateProject(language, "maven", "2.1.1.RELEASE",
+				(description) -> description
+						.setLanguage(Language.forId(language, "1.8")));
+		project.isGenericProject(ProjectAssert.DEFAULT_PACKAGE_NAME,
 				ProjectAssert.DEFAULT_APPLICATION_NAME, language, extension);
 	}
 
 	@ParameterizedTest
 	@MethodSource("parameters")
 	public void currentGenerationWar(String language, String extension) {
-		ProjectRequest request = createProjectRequest("web");
-		request.setLanguage(language);
-		request.setPackaging("war");
-		generateProject(request).isGenericWarProject(ProjectAssert.DEFAULT_PACKAGE_NAME,
+		ProjectAssert project = generateProject("java", "maven", "2.1.1.RELEASE",
+				(description) -> {
+					description.setPackaging(Packaging.forId("war"));
+					description.setLanguage(Language.forId(language, "1.8"));
+				});
+		project.isGenericProject(ProjectAssert.DEFAULT_PACKAGE_NAME,
 				ProjectAssert.DEFAULT_APPLICATION_NAME, language, extension);
 	}
 
 	@ParameterizedTest
 	@MethodSource("parameters")
 	public void currentGenerationMainClass(String language, String extension) {
-		ProjectRequest request = createProjectRequest();
-		request.setLanguage(language);
-
-		ProjectAssert project = generateProject(request);
+		ProjectAssert project = generateProject("java", "maven", "2.1.1.RELEASE",
+				(description) -> {
+					description.setLanguage(Language.forId(language, "1.8"));
+				});
 		project.sourceCodeAssert(
 				"src/main/" + language + "/com/example/demo/DemoApplication." + extension)
 				.equalsTo(new ClassPathResource(
@@ -74,10 +81,11 @@ class ProjectGeneratorLanguageTests extends AbstractProjectGeneratorTests {
 	@ParameterizedTest
 	@MethodSource("parameters")
 	public void previousGenerationMainClass(String language, String extension) {
-		ProjectRequest request = createProjectRequest();
-		request.setLanguage(language);
-		request.setBootVersion("1.5.18.RELEASE");
-		ProjectAssert project = generateProject(request);
+		ProjectAssert project = generateProject("java", "maven", "2.1.1.RELEASE",
+				(description) -> {
+					description.setLanguage(Language.forId(language, "1.8"));
+					description.setPlatformVersion(Version.parse("1.5.18.RELEASE"));
+				});
 		project.sourceCodeAssert(
 				"src/main/" + language + "/com/example/demo/DemoApplication." + extension)
 				.equalsTo(new ClassPathResource("project/" + language + "/previous/"
@@ -87,10 +95,10 @@ class ProjectGeneratorLanguageTests extends AbstractProjectGeneratorTests {
 	@ParameterizedTest
 	@MethodSource("parameters")
 	public void currentGenerationTestClass(String language, String extension) {
-		ProjectRequest request = createProjectRequest();
-		request.setLanguage(language);
-
-		ProjectAssert project = generateProject(request);
+		ProjectAssert project = generateProject("java", "maven", "2.1.1.RELEASE",
+				(description) -> {
+					description.setLanguage(Language.forId(language, "1.8"));
+				});
 		project.sourceCodeAssert("src/test/" + language
 				+ "/com/example/demo/DemoApplicationTests." + extension)
 				.equalsTo(new ClassPathResource(
@@ -101,10 +109,11 @@ class ProjectGeneratorLanguageTests extends AbstractProjectGeneratorTests {
 	@ParameterizedTest
 	@MethodSource("parameters")
 	public void currentGenerationTestClassWeb(String language, String extension) {
-		ProjectRequest request = createProjectRequest("web");
-		request.setLanguage(language);
-
-		ProjectAssert project = generateProject(request);
+		ProjectAssert project = generateProject("java", "maven", "2.1.1.RELEASE",
+				(description) -> {
+					description.setLanguage(Language.forId(language, "1.8"));
+					description.addDependency("web", ConceptTranslator.toDependency(WEB));
+				});
 		project.sourceCodeAssert("src/test/" + language
 				+ "/com/example/demo/DemoApplicationTests." + extension)
 				.equalsTo(new ClassPathResource(
@@ -115,10 +124,11 @@ class ProjectGeneratorLanguageTests extends AbstractProjectGeneratorTests {
 	@ParameterizedTest
 	@MethodSource("parameters")
 	public void currentGenerationServletInitializer(String language, String extension) {
-		ProjectRequest request = createProjectRequest();
-		request.setLanguage(language);
-		request.setPackaging("war");
-		ProjectAssert project = generateProject(request);
+		ProjectAssert project = generateProject("java", "maven", "2.1.1.RELEASE",
+				(description) -> {
+					description.setPackaging(Packaging.forId("war"));
+					description.setLanguage(Language.forId(language, "1.8"));
+				});
 		project.sourceCodeAssert("src/main/" + language
 				+ "/com/example/demo/ServletInitializer." + extension)
 				.equalsTo(new ClassPathResource("project/" + language + "/standard/"
@@ -128,11 +138,12 @@ class ProjectGeneratorLanguageTests extends AbstractProjectGeneratorTests {
 	@ParameterizedTest
 	@MethodSource("parameters")
 	public void previousGenerationServletInitializer(String language, String extension) {
-		ProjectRequest request = createProjectRequest();
-		request.setLanguage(language);
-		request.setBootVersion("1.5.18.RELEASE");
-		request.setPackaging("war");
-		ProjectAssert project = generateProject(request);
+		ProjectAssert project = generateProject("java", "maven", "2.1.1.RELEASE",
+				(description) -> {
+					description.setPackaging(Packaging.forId("war"));
+					description.setLanguage(Language.forId(language, "1.8"));
+					description.setPlatformVersion(Version.parse("1.5.18.RELEASE"));
+				});
 		project.sourceCodeAssert("src/main/" + language
 				+ "/com/example/demo/ServletInitializer." + extension)
 				.equalsTo(new ClassPathResource("project/" + language + "/previous/"
